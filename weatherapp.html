@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>天気アプリ</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(to right, #00b4db, #0083b0);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #333;
+        }
+        
+        .container {
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            width: 85%;
+            max-width: 500px;
+            text-align: center;
+        }
+        
+        .search {
+            margin-bottom: 2rem;
+            position: relative;
+        }
+        
+        input {
+            width: 100%;
+            padding: 1rem;
+            border: none;
+            border-radius: 25px;
+            background-color: rgba(255, 255, 255, 0.8);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            font-size: 1rem;
+            padding-left: 2.5rem;
+        }
+        
+        .search-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #666;
+        }
+        
+        button {
+            background-color: #0083b0;
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 25px;
+            cursor: pointer;
+            margin-top: 1rem;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        button:hover {
+            background-color: #006a8e;
+            transform: translateY(-2px);
+        }
+        
+        .weather-info {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .city {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        
+        .date {
+            font-size: 1rem;
+            color: #666;
+            margin-bottom: 1rem;
+        }
+        
+        .temp {
+            font-size: 3rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+        }
+        
+        .weather-icon {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 1rem;
+        }
+        
+        .description {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            text-transform: capitalize;
+        }
+        
+        .details {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            margin-top: 2rem;
+        }
+        
+        .col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .detail {
+            margin-top: 0.5rem;
+            font-size: 1rem;
+        }
+        
+        .loading, .error-message {
+            font-size: 1.2rem;
+            margin-top: 1rem;
+            color: #666;
+        }
+        
+        .error-message {
+            color: #e74c3c;
+        }
+        
+        /* 最初は天気情報を非表示にする */
+        .weather-container {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="search">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="city-input" placeholder="都市名を入力してください">
+            <button id="search-btn">検索</button>
+        </div>
+        
+        <div class="loading" id="loading">検索中...</div>
+        <div class="error-message" id="error-message"></div>
+        
+        <div class="weather-container" id="weather-container">
+            <div class="weather-info">
+                <div class="city" id="city">東京</div>
+                <div class="date" id="date">2025年5月19日 月曜日</div>
+                <div class="temp" id="temp">23°C</div>
+                <img src="/api/placeholder/100/100" alt="天気アイコン" class="weather-icon" id="weather-icon">
+                <div class="description" id="description">晴れ</div>
+                
+                <div class="details">
+                    <div class="col">
+                        <div>💧</div>
+                        <div class="detail" id="humidity">60%</div>
+                        <div>湿度</div>
+                    </div>
+                    <div class="col">
+                        <div>💨</div>
+                        <div class="detail" id="wind">5 m/s</div>
+                        <div>風速</div>
+                    </div>
+                    <div class="col">
+                        <div>☁️</div>
+                        <div class="detail" id="clouds">20%</div>
+                        <div>雲量</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const apiKey = 'YOUR_API_KEY'; // OpenWeatherMap APIキーを入力してください
+            const cityInput = document.getElementById('city-input');
+            const searchBtn = document.getElementById('search-btn');
+            const loadingEl = document.getElementById('loading');
+            const errorMessageEl = document.getElementById('error-message');
+            const weatherContainerEl = document.getElementById('weather-container');
+            
+            // 初期状態設定
+            loadingEl.style.display = 'none';
+            
+            // 検索ボタンクリック時のイベント
+            searchBtn.addEventListener('click', getWeather);
+            
+            // エンターキー押下時のイベント
+            cityInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    getWeather();
+                }
+            });
+            
+            // 天気情報を取得する関数
+            function getWeather() {
+                const cityName = cityInput.value.trim();
+                
+                // 入力チェック
+                if (cityName === '') {
+                    showError('都市名を入力してください');
+                    return;
+                }
+                
+                // 表示状態のリセット
+                weatherContainerEl.style.display = 'none';
+                errorMessageEl.style.display = 'none';
+                loadingEl.style.display = 'block';
+                
+                // OpenWeatherMap APIにリクエスト
+                fetch(`https://api.openweathermap.org/data/2.5/weather?q=${cityName}&appid=${apiKey}&units=metric&lang=ja`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('都市が見つかりませんでした。正しい都市名を入力してください。');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        displayWeather(data);
+                        loadingEl.style.display = 'none';
+                        weatherContainerEl.style.display = 'block';
+                    })
+                    .catch(error => {
+                        loadingEl.style.display = 'none';
+                        showError(error.message);
+                    });
+            }
+            
+            // 天気情報を表示する関数
+            function displayWeather(data) {
+                const cityEl = document.getElementById('city');
+                const dateEl = document.getElementById('date');
+                const tempEl = document.getElementById('temp');
+                const weatherIconEl = document.getElementById('weather-icon');
+                const descriptionEl = document.getElementById('description');
+                const humidityEl = document.getElementById('humidity');
+                const windEl = document.getElementById('wind');
+                const cloudsEl = document.getElementById('clouds');
+                
+                // 都市名
+                cityEl.textContent = `${data.name}, ${data.sys.country}`;
+                
+                // 日付
+                const today = new Date();
+                const options = { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                };
+                dateEl.textContent = today.toLocaleDateString('ja-JP', options);
+                
+                // 気温
+                tempEl.textContent = `${Math.round(data.main.temp)}°C`;
+                
+                // 天気アイコン
+                const iconCode = data.weather[0].icon;
+                weatherIconEl.src = `https://openweathermap.org/img/wn/${iconCode}@2x.png`;
+                weatherIconEl.alt = data.weather[0].description;
+                
+                // 天気の説明
+                descriptionEl.textContent = data.weather[0].description;
+                
+                // 湿度
+                humidityEl.textContent = `${data.main.humidity}%`;
+                
+                // 風速
+                windEl.textContent = `${data.wind.speed} m/s`;
+                
+                // 雲量
+                cloudsEl.textContent = `${data.clouds.all}%`;
+            }
+            
+            // エラーメッセージを表示する関数
+            function showError(message) {
+                errorMessageEl.textContent = message;
+                errorMessageEl.style.display = 'block';
+            }
+            
+            // デモ用に東京の天気を表示（APIキーが設定されていない場合は実行されません）
+            if (apiKey !== 'YOUR_API_KEY') {
+                cityInput.value = '東京';
+                getWeather();
+            }
+        });
+    </script>
+</body>
+</html>
